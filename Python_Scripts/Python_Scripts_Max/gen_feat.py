@@ -4,7 +4,12 @@
 Created on Wed Nov 24 10:36:44 2021
 
 @author: maximilianvanamerongen
-TO DO: add looping through different exponents
+
+This scripts calculates all different log gc values, and stores the created features in X.
+All the different features are also stored in txtfiles with the name : 'image_name' + _artfeatures.txt  
+The different exponents combinations are saved in the exponents file.
+The belonging images names are stored in images_names .
+
 """
 
 import os, sys
@@ -12,7 +17,8 @@ import subprocess
 import math
 import numpy as np
 
-#%% Generate for each variable different exponents:
+#%% Define different bounds and the number of exponents you want to iterate through: 
+
 n_ev        = 10
 min_ev      = -2.5
 max_ev      = 2.5
@@ -37,33 +43,31 @@ n_bias        = 10
 min_bias      = -2.5
 max_bias      = 2.5
 exp_bias_list = np.linspace(min_bias,max_bias,n_bias)
-
-#%% Deifne directory where data is saved:
-expt_2a     = '/Users/maximilianvanamerongen/Documents/Master/EPFL/Machine_Learning_CS433/Project2/CS-433-Project-2/Data/Expt_2A'
-path_2a_art = '/Users/maximilianvanamerongen/Documents/Master/EPFL/Machine_Learning_CS433/Project2/CS-433-Project-2/Data/Expt_2A/Artfeatures'
+#%% Deifne directory where data is saved: 
+expt_2a     = '/Users/maximilianvanamerongen/Documents/Master/EPFL/Machine_Learning_CS433/Project2/CS-433-Project-2-local/Data/Expt_2A'             # Location where all your images are stored
+path_2a_art = '/Users/maximilianvanamerongen/Documents/Master/EPFL/Machine_Learning_CS433/Project2/CS-433-Project-2-local/Data/Expt_2A/Artfeatures' # Location where you want to store the txtfile with the different calculated features
 os.chdir(expt_2a)
 
-
-features_arr     = np.array([]) # Store all different features in this array: 
+X                = np.zeros((1,10000)) # store feature combinations in this list
+image_names      = [];                 # store image names in this list 
+features_arr     = []; 
 
 for txtfile in os.listdir(os.getcwd()):
     if txtfile.endswith('_deletedstray.txt'):
         ftmp                 = open(os.path.join(os.getcwd(), txtfile), 'r')
-        #glaremetricsfile_tmp = open('artificial_features.txt', 'a')
-        
         artfeature_file     = open( os.path.join(path_2a_art,(txtfile + '_artfeatures.txt')),'w')
-        feature_list = np.array([]);
-        loggc_row = np.array([]) 
         
-        for l in exp_ev_list:
-            for k in exp_omega_list:
-                for j in exp_pos_list:
-                    for i in exp_ls_list:
+        exponents_list = np.array([]);
+        loggc_row    = np.array([]) 
+        
+        for l in exp_ev_list:              # iterate through different exponents for ev
+            for k in exp_omega_list:       # iterate through different exponents for omega
+                for j in exp_pos_list:     # iterate through different exponents for pos
+                    for i in exp_ls_list:  # iterate through different exponents for ls
                         loggc_list = []
-                        feature_list = np.append(feature_list,np.array([i,j,k,l]))
+                        exponents_list = np.append(exponents_list,np.array([i,j,k,l]))
             
                         ftmp                 = open(os.path.join(os.getcwd(), txtfile), 'r')
-                        #glaremetricsfile_tmp = open('artificial_features.txt', 'a')
                         artfeature_file_tmp  = open(artfeature_file.name,'a')
         
                         glaremetriclist = []
@@ -81,53 +85,49 @@ for txtfile in os.listdir(os.getcwd()):
                                 ls    = float(pieces[4])   #Ls
                                 omega = float(pieces[5])   #omega solid angle in steradians
                                 pos   = float(pieces[6])   #position index
-                        
+                                
+                                # Set values for different exponents:
                                 exp_ls    = i
                                 exp_pos   = j
                                 exp_ev    = l
                                 exp_omega = k
                                 
-                                
-                                loggc_t1 = (ls**exp_ls)*omega**exp_omega
+                                # Calculate different loggc terms 
+                                loggc_t1 = (ls**exp_ls)*omega**exp_omega 
                                 loggc_t2 = ev**exp_ev
                                 loggc_t3 = pos**exp_pos
+                                
+                                # Calculate and store loggc for every glaresource in the image
                                 loggc    = loggc_t1/(loggc_t2*loggc_t3) # summation term in loggc
                                 loggc_list.append(loggc)                # square of luminance of source multiplied by omega (solid angle of source)
-                                #print('log gc:',loggc)
-                                
+                               
                                 count += 1
                                 
-                        if loggc_list != []:
+                        if loggc_list != []: # Calculate loggc of the image 
                             log_gc    = math.log10(1 + sum(loggc_list))
-                            loggc_row =  np.append(loggc_row,log_gc)
-            
+                            loggc_row = np.append(loggc_row,log_gc)
                 
         if loggc_row != []:
             loggc_row = loggc_row.reshape(-1,10) 
-            content = str(loggc_row)
-            artfeature_file_tmp.write(','.join(str(v) for v in loggc_row))
-            #artfeature_file_tmp.write(content) 
-            print('loggc row:=',loggc_row) 
+            content = str(loggc_row) 
+            artfeature_file_tmp.write(','.join(str(v) for v in loggc_row)) # Store calculate features in txtfile
             
-        glaremetriclist.append(log_gc)
-        loggc_arr = np.array(glaremetriclist)
-        features_arr =np.append(features_arr,loggc_arr, axis = 0)
-        
-        glaremetricsfile_tmp.write(','.join(str(v) for v in glaremetriclist))
-        glaremetricsfile_tmp.write('\n')
+            print('loggc row:=',loggc_row) 
+            X = np.append(X,np.reshape(loggc_row,(1,-1)),axis = 0) # Store calcualted features in feature matrix X
+            image_names.append(txtfile)                            # Store belonging image names in image_names vector 
 
+#%% Process and store calculated feature matrix:
+    
+X = np.delete(X,0,0) # Delte the first row of zeros
 
-
-#%%
+# Store different combinations of exponents in exponents file:
 exponents     = open(os.path.join(path_2a_art,'exponents.txt'),'w')
 exponents_tmp = open(os.path.join(path_2a_art,'exponents.txt'), 'a')
 
-#%%
 exponents_tmp.write('ls,pos,omega,ls')
 exponents_tmp.write('\n') 
-feature_list = feature_list.reshape(-1,4)
-exponents_tmp.write(','.join(str(v) for v in feature_list))
-
-
-
-
+exponents_list = exponents_list.reshape(-1,4)
+exponents_tmp.write(','.join(str(v) for v in exponents_list))
+#%% Store feature matrix X and images name vector :
+np.save("X_2A.npy", X)
+np.save("image_names_2A.npy", image_names)
